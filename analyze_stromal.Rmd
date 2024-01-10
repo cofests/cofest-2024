@@ -1,0 +1,107 @@
+---
+title: "Explore PreCancer Altas (PCA) scRNA-seq Data (stromal)"
+author: "Yuba Bhandari"
+date: "2023-11-20"
+output:
+  html_notebook:
+    toc: true
+    toc_float: true
+---
+
+# Summary
+
+- https://pubmed.gov/35726067
+- https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE201348
+- https://humantumoratlas.org/hta10
+
+# Load Libraries
+
+```{r message=FALSE}
+library(Seurat)
+library(SeuratObject)
+library(SingleCellExperiment)
+library(scater)
+library(scran)
+```
+
+# Load Data
+
+```{r}
+sobj_stromal = readRDS("/home/idies/workspace/SingleCellConsortium/cutsort/cofest-2024/data/singlecell/Final_scHTAN_colon_stromal_220213.rds")
+sobj_stromal = UpdateSeuratObject(sobj_stromal)
+sce.stromal = as.SingleCellExperiment(sobj_stromal)
+# saveRDS(sce.stromal, file = "sce.stromal.rds")
+```
+
+# Explore Data
+
+```{r}
+as.data.frame( colData(sce.stromal) )
+```
+
+```{r fig.width=10}
+plot1 = plotReducedDim(sce.stromal, "UMAP", colour_by="CellType", point_size = 0.5) +
+  guides(color = guide_legend(override.aes = list(size=3)))
+plot2 = plotReducedDim(sce.stromal, "UMAP", colour_by="DiseaseState", point_size = 0.5) +
+  guides(color = guide_legend(override.aes = list(size=3)))
+gridExtra::grid.arrange(plot1, plot2, nrow = 1, ncol = 2)
+```
+
+```{r}
+table(colData(sce.stromal)$DiseaseState)
+table(colData(sce.stromal)$ident)
+table(colData(sce.stromal)$CellTypeInitial)
+table(colData(sce.stromal)$CellType)
+unique(colData(sce.stromal)$CellType)
+colnames(colData(sce.stromal))
+
+colLabels(sce.stromal) <- as.factor(colData(sce.stromal)$CellType)
+table(colData(sce.stromal)$label)
+```
+
+# Identifying Marker Genes Across Clusters
+
+```{r}
+marker.info <- scoreMarkers(sce.stromal, groups = colData(sce.stromal)$label)
+length(unique(colData(sce.stromal)$label))
+print(names(marker.info))
+```
+
+```{r}
+stromal.markers = 
+  lapply(marker.info, function(x){
+  # colnames(x)
+  cluster1 = as.data.frame(x)
+  ordered.meanAUC <- cluster1[order(cluster1$mean.AUC, decreasing=TRUE),]
+  ordered.meanlogFC.cohen <- cluster1[order(cluster1$mean.logFC.cohen, decreasing=TRUE),]
+  # ordered.meanlogFC.det <- cluster1[order(cluster1$mean.logFC.detected, decreasing=TRUE),]
+  markers = unique(c(rownames(ordered.meanAUC[1:10,c(10:14)]), 
+                   rownames(ordered.meanlogFC.cohen[1:10,c(5:9)])))  
+  markers
+})
+```
+
+# Inspect the plots visually for the genes/markers
+
+```{r fig.width=10}
+plotExpression(sce.stromal, features=stromal.markers$`Myofibroblasts/Smooth Muscle 1`,
+               x="label", colour_by="label") +
+  theme(axis.text.x = element_text(angle = 70, vjust = 1, hjust=1))
+```
+
+```{r fig.width=10}
+plotExpression(sce.stromal, features=stromal.markers$`Myofibroblasts/Smooth Muscle 1`,
+               x="DiseaseState", colour_by="DiseaseState") +
+  theme(axis.text.x = element_text(angle = 70, vjust = 1, hjust=1))
+```
+
+```{r fig.width=10}
+plotUMAP(sce.stromal, colour_by="MYH11" )
+```
+
+# Document software
+
+```{r}
+sessionInfo()
+```
+
